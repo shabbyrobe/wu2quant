@@ -47,3 +47,20 @@ by recycling the image.Paletted (if the output is the same size as the input)::
     err := wu2.IntoPaletted(256, jpg1, frame)
     err := wu2.IntoPaletted(256, jpg2, frame)
 
+
+## Expectation Management
+
+The only API in this package that can be considered stable is the one implementing
+[image/draw.Quantizer](https://golang.org/pkg/image/draw/#Quantizer). All other APIs
+may change at any time without warning. This library is small enough to be vendored,
+and unlikely to change in any serious fashion, so if stability is a concern, this is
+what you should do.
+
+Issues may be responded to whenever I happen to get around to them, but PRs are
+unlikely to be accepted without discussion prior to starting.
+
+
+## License
+
+This is provided under an MIT license.
+
