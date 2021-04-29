@@ -5,6 +5,8 @@ Reduces the number of colours in an *image.RGBA to fit in the desired palette
 size. Quality is decent for the speed; it's much faster than NeuQuant and I
 can't really tell the difference in the output (YMMV).
 
+![](https://github.com/shabbyrobe/wu2quant/blob/main/demo/kodimg23.apng?raw=true)
+
 Originally invented by [Xiaolin Wu](https://www.ece.mcmaster.ca/~xwu/)
 
 Supports [image/draw.Quantizer](https://golang.org/pkg/image/draw/#Quantizer)::
