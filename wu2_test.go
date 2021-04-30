@@ -45,7 +45,7 @@ func genRGBAWithRandomRGBPerPixel(rng *rand.Rand, w, h int) *image.RGBA {
 
 func TestQuantizeTo4(t *testing.T) {
 	img := genRGBAWithUniqueRGBPerPixel(512, 256)
-	q := NewQuantizer()
+	q := New()
 
 	pal := make(color.Palette, 0, 4)
 	out := q.Quantize(pal[:0], img)
@@ -65,10 +65,10 @@ func TestQuantizeWithRecycledQuantizer(t *testing.T) {
 	}
 
 	// Get the expected palette for img2:
-	expected := NewQuantizer().QuantizeRGBAToPalette(make(color.Palette, 0, 8), img2)
+	expected := New().QuantizeRGBAToPalette(make(color.Palette, 0, 8), img2)
 
 	// Quantize img1 first to fill the structures up with stuff:
-	q := NewQuantizer()
+	q := New()
 	q.QuantizeRGBAToPalette(make(color.Palette, 0, 8), img1)
 
 	// Quantize img2 with the recycled quantizer:
@@ -81,7 +81,7 @@ func TestQuantizeWithRecycledQuantizer(t *testing.T) {
 
 func TestQuantizeTo256(t *testing.T) {
 	img := genRGBAWithUniqueRGBPerPixel(512, 256)
-	q := NewQuantizer()
+	q := New()
 
 	pal := make(color.Palette, 0, 256)
 	out := q.Quantize(pal[:0], img)
@@ -109,17 +109,17 @@ func TestIntoPaletted(t *testing.T) {
 		t.Fatal()
 	}
 
-	exp1, err := NewQuantizer().ToPaletted(8, img1)
+	exp1, err := New().ToPaletted(8, img1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	exp2, err := NewQuantizer().ToPaletted(8, img2)
+	exp2, err := New().ToPaletted(8, img2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var q = NewQuantizer()
+	var q = New()
 	var pal = image.NewPaletted(img1.Bounds(), nil)
 	if err := q.IntoPaletted(8, img1, pal); err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestIntoPaletted(t *testing.T) {
 func BenchmarkToPaletted(b *testing.B) {
 	b.ReportAllocs()
 	img := genRGBAWithUniqueRGBPerPixel(512, 256)
-	q := NewQuantizer()
+	q := New()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -156,7 +156,7 @@ func BenchmarkToPaletted(b *testing.B) {
 func BenchmarkQuantize512x256(b *testing.B) {
 	b.ReportAllocs()
 	img := genRGBAWithUniqueRGBPerPixel(512, 256)
-	q := NewQuantizer()
+	q := New()
 
 	pal := make(color.Palette, 0, 256)
 	b.ResetTimer()
@@ -168,7 +168,7 @@ func BenchmarkQuantize512x256(b *testing.B) {
 func BenchmarkQuantize2048x2048(b *testing.B) {
 	b.ReportAllocs()
 	img := genRGBAWithUniqueRGBPerPixel(2048, 2048)
-	q := NewQuantizer()
+	q := New()
 
 	pal := make(color.Palette, 0, 256)
 	b.ResetTimer()
@@ -180,7 +180,7 @@ func BenchmarkQuantize2048x2048(b *testing.B) {
 func BenchmarkQuantizeRGBA512x256(b *testing.B) {
 	b.ReportAllocs()
 	img := genRGBAWithUniqueRGBPerPixel(512, 256)
-	q := NewQuantizer()
+	q := New()
 
 	pal := make([]color.RGBA, 0, 256)
 	b.ResetTimer()

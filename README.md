@@ -12,7 +12,7 @@ Originally invented by [Xiaolin Wu](https://www.ece.mcmaster.ca/~xwu/)
 Supports [image/draw.Quantizer](https://golang.org/pkg/image/draw/#Quantizer)::
 
     jpg, err := jpeg.Decode(buf)
-    wu2 := wu2quant.NewQuantizer()
+    wu2 := wu2quant.New()
 
     // Quantize the colors in jpg to a 256 color palette:
     palette := wu2.Quantize(make(color.Palette, 0, 256), jpg)
@@ -20,14 +20,14 @@ Supports [image/draw.Quantizer](https://golang.org/pkg/image/draw/#Quantizer)::
 Convert an existing image into a quantized, paletted version in a single call::
 
     jpg, err := jpeg.Decode(buf)
-    wu2 := wu2quant.NewQuantizer()
+    wu2 := wu2quant.New()
 
     // Quantize the colors in jpg to a 256 color palette:
     paletted := wu2.ToPaletted(256, jpg)
 
 Reduce allocs by recycling the quantizer::
 
-    wu2 := wu2quant.NewQuantizer()
+    wu2 := wu2quant.New()
 
     jpg1, err := jpeg.Decode(buf1)
     paletted, err := wu2.ToPaletted(256, jpg1)
@@ -38,7 +38,7 @@ Reduce allocs by recycling the quantizer::
 If the paletted image doesn't need to be retained, you can also reduce allocs
 by recycling the image.Paletted (if the output is the same size as the input)::
 
-    wu2 := wu2quant.NewQuantizer()
+    wu2 := wu2quant.New()
 
     jpg1, err := jpeg.Decode(buf1)
     jpg2, err := jpeg.Decode(buf2)

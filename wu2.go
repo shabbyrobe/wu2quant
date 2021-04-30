@@ -14,7 +14,7 @@ type Quantizer struct {
 	dirty bool
 }
 
-func NewQuantizer() *Quantizer {
+func New() *Quantizer {
 	return &Quantizer{}
 }
 
