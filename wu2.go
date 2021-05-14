@@ -91,8 +91,7 @@ func (q *Quantizer) ToPaletted(paletteColors int, m image.Image) (*image.Palette
 func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA) (*image.Paletted, error) {
 	var (
 		cols   quantizedColors
-		bounds = m.Bounds()
-		size   = bounds.Size()
+		size   = m.Bounds().Size()
 		pixels = size.X * size.Y
 	)
 
@@ -107,7 +106,7 @@ func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA) (*image.Pal
 		palette[i] = color.RGBA{R: cols.rLut[i], G: cols.gLut[i], B: cols.bLut[i], A: 0xff}
 	}
 
-	var out = image.NewPaletted(bounds, palette)
+	var out = image.NewPaletted(image.Rect(0, 0, size.X, size.Y), palette)
 	var qaddIdx int
 	var vlen = len(m.Pix) / 4
 
