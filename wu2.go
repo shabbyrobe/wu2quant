@@ -40,16 +40,14 @@ func (q *Quantizer) Quantize(p color.Palette, m image.Image) color.Palette {
 // updated palette suitable for converting m to a paletted image.
 func (q *Quantizer) QuantizeRGBA(p []color.RGBA, m *image.RGBA) []color.RGBA {
 	var cols quantizedColors
-
 	if err := q.quantize(&cols, m, cap(p)-len(p), nil); err != nil {
 		panic(err)
 	}
 
 	idx := paletteIndex(len(p))
-	p = append(p, make([]color.RGBA, cols.paletteSize)...)
 	end := idx + cols.paletteSize
 	for i := idx; i < end; i++ {
-		p[i] = color.RGBA{R: cols.rLut[i], G: cols.gLut[i], B: cols.bLut[i], A: 0xff}
+		p = append(p, color.RGBA{R: cols.rLut[i], G: cols.gLut[i], B: cols.bLut[i], A: 0xff})
 	}
 
 	return p
@@ -63,16 +61,14 @@ func (q *Quantizer) QuantizeRGBA(p []color.RGBA, m *image.RGBA) []color.RGBA {
 // for converting m to a paletted image.
 func (q *Quantizer) QuantizeRGBAToPalette(p color.Palette, m *image.RGBA) color.Palette {
 	var cols quantizedColors
-
 	if err := q.quantize(&cols, m, cap(p)-len(p), nil); err != nil {
 		panic(err)
 	}
 
 	idx := paletteIndex(len(p))
-	p = append(p, make(color.Palette, cols.paletteSize)...)
 	end := idx + cols.paletteSize
 	for i := idx; i < end; i++ {
-		p[i] = color.RGBA{R: cols.rLut[i], G: cols.gLut[i], B: cols.bLut[i], A: 0xff}
+		p = append(p, color.RGBA{R: cols.rLut[i], G: cols.gLut[i], B: cols.bLut[i], A: 0xff})
 	}
 
 	return p
@@ -108,7 +104,7 @@ func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA) (*image.Pal
 
 	var out = image.NewPaletted(image.Rect(0, 0, size.X, size.Y), palette)
 	var qaddIdx int
-	var vlen = len(m.Pix) / 4
+	var vlen = len(out.Pix)
 
 	for i := 0; i < vlen; i++ {
 		out.Pix[i] = uint8(q.tag[qadd[qaddIdx]])
@@ -157,7 +153,7 @@ func (q *Quantizer) RGBAIntoPaletted(paletteColors int, m *image.RGBA, o *image.
 	}
 
 	var qaddIdx int
-	var vlen = len(m.Pix) / 4
+	var vlen = len(o.Pix)
 
 	for i := 0; i < vlen; i++ {
 		o.Pix[i] = uint8(q.tag[qadd[qaddIdx]])
@@ -287,9 +283,29 @@ func (hist *histogram3D) build(img *image.RGBA, qadd []paletteIndex) {
 	const trunc = 3 // shift each color channel right
 
 	qidx := 0
-	plen := len(img.Pix)
 	pix := img.Pix
-	for idx := 0; idx < plen; idx += 4 {
+
+	bounds := img.Bounds()
+	xmax := (bounds.Max.X - bounds.Min.X) * 4
+	xgap := img.Stride - xmax
+
+	max := len(pix)
+	if xgap > 0 {
+		// Subimages slice the pixel buffer to start at the first real pixel of
+		// the subimage:
+		//
+		//   . . . . . . . . . .    .  = image pixel
+		//   . .[x x x x x x(_ _    x  = subimage
+		//   _ _)x x x x x x(_ _    [] = subimage pix bounds
+		//   _ _)x x x x x x(_ _    _  = xgap pixel
+		//   _ _)x x x x x x!. .    () = xgap bounds
+		//   . . . . . . . . . .]   !  = where we want max
+		//
+		max = (img.Rect.Dx() * img.Rect.Dy() * 4) + (xgap * (img.Rect.Dy() - 1))
+	}
+
+	x := 0
+	for idx := 0; idx < max; idx += 4 {
 		var (
 			r8, g8, b8    = int64(pix[idx]), int64(pix[idx+1]), int64(pix[idx+2])
 			inr, ing, inb = (r8 >> trunc) + 1, (g8 >> trunc) + 1, (b8 >> trunc) + 1
@@ -306,6 +322,12 @@ func (hist *histogram3D) build(img *image.RGBA, qadd []paletteIndex) {
 		hist.mg[inr][ing][inb] += g8
 		hist.mb[inr][ing][inb] += b8
 		hist.m2[inr][ing][inb] += (float32)(squares[r8] + squares[g8] + squares[b8])
+
+		x += 4
+		if x == xmax {
+			x = 0
+			idx += xgap
+		}
 	}
 }
 

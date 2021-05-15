@@ -25,6 +25,20 @@ func genRGBAWithUniqueRGBPerPixel(w, h int) *image.RGBA {
 	return img
 }
 
+func genRandomRGBAPalette(rng *rand.Rand, n int) []color.RGBA {
+	pal := make([]color.RGBA, n)
+	for i := range pal {
+		v := rng.Uint64() & (1<<24 - 1)
+		c := v<<8 | 0xff
+		pal[i] = color.RGBA{uint8(c >> 24),
+			uint8(c >> 16),
+			uint8(c >> 8),
+			uint8(c),
+		}
+	}
+	return pal
+}
+
 func genRGBAWithRandomRGBPerPixel(rng *rand.Rand, w, h int) *image.RGBA {
 	if rng == nil {
 		rng = rand.New(rand.NewSource(0))
@@ -43,15 +57,71 @@ func genRGBAWithRandomRGBPerPixel(rng *rand.Rand, w, h int) *image.RGBA {
 	return img
 }
 
-func TestQuantizeTo4(t *testing.T) {
-	img := genRGBAWithUniqueRGBPerPixel(512, 256)
-	q := New()
+func TestQuantizePixels(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	pal := genRandomRGBAPalette(rand.New(rand.NewSource(0)), 10)
 
-	pal := make(color.Palette, 0, 4)
-	out := q.Quantize(pal[:0], img)
-	exp := color.Palette{color.RGBA{63, 63, 64, 255}, color.RGBA{191, 63, 64, 255}, color.RGBA{63, 191, 64, 255}, color.RGBA{191, 191, 64, 255}}
+	for i, j := 0, 9; i < j; i, j = i+1, j-1 {
+		for p := i; p <= j; p++ {
+			img.SetRGBA(i, p, pal[i])
+			img.SetRGBA(j, p, pal[i])
+			img.SetRGBA(p, i, pal[i])
+			img.SetRGBA(p, j, pal[i])
+		}
+	}
 
-	if !reflect.DeepEqual(out, exp) {
+	result, err := New().ToPaletted(8, img)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []uint8{
+		4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+		4, 2, 2, 2, 2, 2, 2, 2, 2, 4,
+		4, 2, 3, 3, 3, 3, 3, 3, 2, 4,
+		4, 2, 3, 1, 1, 1, 1, 3, 2, 4,
+		4, 2, 3, 1, 0, 0, 1, 3, 2, 4,
+		4, 2, 3, 1, 0, 0, 1, 3, 2, 4,
+		4, 2, 3, 1, 1, 1, 1, 3, 2, 4,
+		4, 2, 3, 3, 3, 3, 3, 3, 2, 4,
+		4, 2, 2, 2, 2, 2, 2, 2, 2, 4,
+		4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	}
+
+	if !reflect.DeepEqual(expected, result.Pix) {
+		t.Fatal()
+	}
+}
+
+func TestQuantizeFromSubimage(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	pal := genRandomRGBAPalette(rand.New(rand.NewSource(0)), 10)
+
+	for i, j := 0, 9; i < j; i, j = i+1, j-1 {
+		for p := i; p <= j; p++ {
+			img.SetRGBA(i, p, pal[i])
+			img.SetRGBA(j, p, pal[i])
+			img.SetRGBA(p, i, pal[i])
+			img.SetRGBA(p, j, pal[i])
+		}
+	}
+
+	sub := img.SubImage(image.Rect(2, 2, 8, 8))
+	result, err := New().ToPaletted(8, sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []uint8{
+		2, 2, 2, 2, 2, 2,
+		2, 1, 1, 1, 1, 2,
+		2, 1, 0, 0, 1, 2,
+		2, 1, 0, 0, 1, 2,
+		2, 1, 1, 1, 1, 2,
+		2, 2, 2, 2, 2, 2,
+	}
+
+	if !reflect.DeepEqual(expected, result.Pix) {
 		t.Fatal()
 	}
 }
@@ -75,6 +145,23 @@ func TestQuantizeWithRecycledQuantizer(t *testing.T) {
 	result := q.QuantizeRGBAToPalette(make(color.Palette, 0, 8), img2)
 
 	if !reflect.DeepEqual(result, expected) {
+		t.Fatal()
+	}
+}
+
+func TestQuantizeTo4(t *testing.T) {
+	img := genRGBAWithUniqueRGBPerPixel(512, 256)
+	q := New()
+
+	pal := make(color.Palette, 0, 4)
+	out := q.Quantize(pal[:0], img)
+	exp := color.Palette{
+		color.RGBA{63, 63, 64, 255},
+		color.RGBA{191, 63, 64, 255},
+		color.RGBA{63, 191, 64, 255},
+		color.RGBA{191, 191, 64, 255}}
+
+	if !reflect.DeepEqual(out, exp) {
 		t.Fatal()
 	}
 }
@@ -150,6 +237,18 @@ func BenchmarkToPaletted(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		q.ToPaletted(256, img)
+	}
+}
+
+func BenchmarkIntoPaletted(b *testing.B) {
+	b.ReportAllocs()
+	img := genRGBAWithUniqueRGBPerPixel(512, 256)
+	q := New()
+	dest := image.NewPaletted(img.Rect, nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.IntoPaletted(256, img, dest)
 	}
 }
 
