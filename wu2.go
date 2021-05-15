@@ -79,21 +79,26 @@ func (q *Quantizer) QuantizeRGBAToPalette(p color.Palette, m *image.RGBA) color.
 //
 // If m is not an *image.RGBA, it will be converted to one before quantization.
 // Depending on the image type, this may trigger very slow code paths.
-func (q *Quantizer) ToPaletted(paletteColors int, m image.Image) (*image.Paletted, error) {
+//
+// If you wish to control allocations, pass an instance of wu2quant.Buffer to buf.
+// If you don't care, pass 'nil'.
+func (q *Quantizer) ToPaletted(paletteColors int, m image.Image, buf *Buffer) (*image.Paletted, error) {
 	rgbImg := convertToRGBA(m)
-	return q.RGBAToPaletted(paletteColors, rgbImg)
+	return q.RGBAToPaletted(paletteColors, rgbImg, buf)
 }
 
-func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA) (*image.Paletted, error) {
+// If you wish to control allocations, pass an instance of wu2quant.Buffer to buf.
+// If you don't care, pass 'nil'.
+func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA, buf *Buffer) (*image.Paletted, error) {
 	var (
 		cols   quantizedColors
 		size   = m.Bounds().Size()
 		pixels = size.X * size.Y
 	)
 
-	// Qadd contains the quantized image (array of table addresses)
-	var qadd = make([]paletteIndex, pixels)
-	if err := q.quantize(&cols, m, paletteColors, qadd); err != nil {
+	// buf contains the quantized image (array of table addresses)
+	buf = ensureBuffer(buf, pixels)
+	if err := q.quantize(&cols, m, paletteColors, buf.qadd); err != nil {
 		return nil, err
 	}
 
@@ -104,6 +109,7 @@ func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA) (*image.Pal
 
 	var out = image.NewPaletted(image.Rect(0, 0, size.X, size.Y), palette)
 	var qaddIdx int
+	var qadd = buf.qadd
 	var vlen = len(out.Pix)
 
 	for i := 0; i < vlen; i++ {
@@ -119,12 +125,12 @@ func (q *Quantizer) RGBAToPaletted(paletteColors int, m *image.RGBA) (*image.Pal
 //
 // If m is not an *image.RGBA, it will be converted to one before quantization.
 // Depending on the image type, this may trigger very slow code paths.
-func (q *Quantizer) IntoPaletted(paletteColors int, m image.Image, o *image.Paletted) error {
+func (q *Quantizer) IntoPaletted(paletteColors int, m image.Image, o *image.Paletted, buf *Buffer) error {
 	rgbImg := convertToRGBA(m)
-	return q.RGBAIntoPaletted(paletteColors, rgbImg, o)
+	return q.RGBAIntoPaletted(paletteColors, rgbImg, o, buf)
 }
 
-func (q *Quantizer) RGBAIntoPaletted(paletteColors int, m *image.RGBA, o *image.Paletted) error {
+func (q *Quantizer) RGBAIntoPaletted(paletteColors int, m *image.RGBA, o *image.Paletted, buf *Buffer) error {
 	var (
 		cols   quantizedColors
 		bounds = m.Bounds()
@@ -136,10 +142,9 @@ func (q *Quantizer) RGBAIntoPaletted(paletteColors int, m *image.RGBA, o *image.
 		return fmt.Errorf("wu2quant: input image m bounds %v did not match output image bounds %v", bounds, o.Bounds())
 	}
 
-	// Qadd contains the quantized image (array of table addresses)
-	// FIXME: use a shared buffer in q, resize as needed:
-	var qadd = make([]paletteIndex, pixels)
-	if err := q.quantize(&cols, m, paletteColors, qadd); err != nil {
+	// buf contains the quantized image (array of table addresses)
+	buf = ensureBuffer(buf, pixels)
+	if err := q.quantize(&cols, m, paletteColors, buf.qadd); err != nil {
 		return err
 	}
 
@@ -152,6 +157,7 @@ func (q *Quantizer) RGBAIntoPaletted(paletteColors int, m *image.RGBA, o *image.
 		o.Palette[i] = color.RGBA{R: cols.rLut[i], G: cols.gLut[i], B: cols.bLut[i], A: 0xff}
 	}
 
+	var qadd = buf.qadd
 	var qaddIdx int
 	var vlen = len(o.Pix)
 
@@ -309,11 +315,11 @@ func (hist *histogram3D) build(img *image.RGBA, qadd []paletteIndex) {
 		var (
 			r8, g8, b8    = int64(pix[idx]), int64(pix[idx+1]), int64(pix[idx+2])
 			inr, ing, inb = (r8 >> trunc) + 1, (g8 >> trunc) + 1, (b8 >> trunc) + 1
-			ind           = (inr << 10) + (inr << 6) + inr + (ing << 5) + ing + inb
+			ind           = paletteIndex((inr << 10) + (inr << 6) + inr + (ing << 5) + ing + inb)
 		)
 
 		if qadd != nil {
-			qadd[qidx] = paletteIndex(ind)
+			qadd[qidx] = ind
 			qidx++
 		}
 
@@ -613,4 +619,34 @@ type quantizedColors struct {
 	// lut_r, lut_g, lut_b as color look-up table contents
 	rLut, gLut, bLut [maxColors]uint8
 	paletteSize      paletteIndex
+}
+
+type Buffer struct {
+	qadd []paletteIndex
+}
+
+func BufferFromDims(x, y int) *Buffer {
+	return NewBuffer(x * y)
+}
+
+func NewBuffer(sz int) *Buffer {
+	return (&Buffer{}).init(sz)
+}
+
+func ensureBuffer(buf *Buffer, sz int) *Buffer {
+	if buf == nil {
+		buf = NewBuffer(sz)
+	} else {
+		buf.init(sz)
+	}
+	return buf
+}
+
+func (b *Buffer) init(sz int) *Buffer {
+	if cap(b.qadd) < sz {
+		b.qadd = make([]paletteIndex, sz)
+	} else {
+		b.qadd = b.qadd[:sz]
+	}
+	return b
 }

@@ -70,7 +70,7 @@ func TestQuantizePixels(t *testing.T) {
 		}
 	}
 
-	result, err := New().ToPaletted(8, img)
+	result, err := New().ToPaletted(8, img, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestQuantizeFromSubimage(t *testing.T) {
 	}
 
 	sub := img.SubImage(image.Rect(2, 2, 8, 8))
-	result, err := New().ToPaletted(8, sub)
+	result, err := New().ToPaletted(8, sub, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,26 +196,26 @@ func TestIntoPaletted(t *testing.T) {
 		t.Fatal()
 	}
 
-	exp1, err := New().ToPaletted(8, img1)
+	exp1, err := New().ToPaletted(8, img1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	exp2, err := New().ToPaletted(8, img2)
+	exp2, err := New().ToPaletted(8, img2, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var q = New()
 	var pal = image.NewPaletted(img1.Bounds(), nil)
-	if err := q.IntoPaletted(8, img1, pal); err != nil {
+	if err := q.IntoPaletted(8, img1, pal, nil); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(exp1, pal) {
 		t.Fatal()
 	}
 
-	if err := q.IntoPaletted(8, img2, pal); err != nil {
+	if err := q.IntoPaletted(8, img2, pal, nil); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(exp2, pal) {
@@ -224,7 +224,44 @@ func TestIntoPaletted(t *testing.T) {
 
 	// Size mismach should return error:
 	var palsml = image.NewPaletted(image.Rect(0, 0, 1, 1), nil)
-	if err := q.IntoPaletted(8, img1, palsml); err == nil {
+	if err := q.IntoPaletted(8, img1, palsml, nil); err == nil {
+		t.Fatal()
+	}
+}
+
+func TestIntoPalettedWithBuffer(t *testing.T) {
+	rng := rand.New(rand.NewSource(0))
+	img1 := genRGBAWithRandomRGBPerPixel(rng, 100, 100)
+
+	// 100x100 image into buffer:
+	buf := NewBuffer(0)
+	exp1, err := New().ToPaletted(8, img1, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 200x200 image into buffer:
+	img2 := genRGBAWithRandomRGBPerPixel(rng, 200, 200)
+	exp2, err := New().ToPaletted(8, img2, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First 100x100 image into buffer:
+	exp1Check, err := New().ToPaletted(8, img1, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(exp1.Pix, exp1Check.Pix) {
+		t.Fatal()
+	}
+
+	// First 200x200 image into buffer should produce same result:
+	exp2Check, err := New().ToPaletted(8, img2, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(exp2.Pix, exp2Check.Pix) {
 		t.Fatal()
 	}
 }
@@ -236,7 +273,7 @@ func BenchmarkToPaletted(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.ToPaletted(256, img)
+		q.ToPaletted(256, img, nil)
 	}
 }
 
@@ -248,7 +285,33 @@ func BenchmarkIntoPaletted(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.IntoPaletted(256, img, dest)
+		q.IntoPaletted(256, img, dest, nil)
+	}
+}
+
+func BenchmarkIntoPalettedBuffer(b *testing.B) {
+	b.ReportAllocs()
+	img := genRGBAWithUniqueRGBPerPixel(512, 256)
+	buf := NewBuffer(512 * 256)
+	q := New()
+	dest := image.NewPaletted(img.Rect, make(color.Palette, 256))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.IntoPaletted(len(dest.Palette), img, dest, buf)
+	}
+}
+
+func BenchmarkRGBAIntoPalettedBuffer(b *testing.B) {
+	b.ReportAllocs()
+	img := genRGBAWithUniqueRGBPerPixel(512, 256)
+	buf := NewBuffer(512 * 256)
+	q := New()
+	dest := image.NewPaletted(img.Rect, nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.RGBAIntoPaletted(256, img, dest, buf)
 	}
 }
 

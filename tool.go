@@ -42,7 +42,7 @@ func run() error {
 	}
 
 	q := wu2quant.New()
-	pal, err := q.ToPaletted(colors, img)
+	pal, err := q.ToPaletted(colors, img, nil)
 	if err != nil {
 		return err
 	}
