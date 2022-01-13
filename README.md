@@ -71,6 +71,17 @@ err := wu2.IntoPaletted(256, jpg1, frame, &buf)
 ```
 
 
+## Possible future stuff
+
+We can quantise YCbCr directly without needing an RGBA conversion. We may
+be able to do the same with CIELAB colours, if they're represented as 8-bit
+ints rather than float64s.
+
+The 'moment' type tolerates being converted to float64 without adversely
+affecting performance and without altering the result at all, which _may_
+mean we can tolerate float64 CIELAB, but this can wait until Go has generics.
+
+
 ## Expectation Management
 
 The only API in this package that can be considered stable is the one implementing

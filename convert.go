@@ -16,8 +16,10 @@ func convertToRGBA(img image.Image) *image.RGBA {
 	switch img := img.(type) {
 	case *image.RGBA:
 		return img
+
 	case rgbaAtImage:
 		return convertRGBAAtToRGBA(img)
+
 	default:
 		return convertImageToRGBA(img)
 	}
