@@ -57,7 +57,7 @@ err := wu2.IntoPaletted(256, jpg2, frame, nil)
 
 If you expect to quantize many images in series, you can reduce allocs substantially
 by reusing the temporary buffer (the buffer does not depend on size, it will grow
-to the largest x*y*sizeof(uint16) of the images you quantize with it):
+to the largest `x*y*sizeof(uint16)` of the images you quantize with it):
 
 ```go
 // Can also pre-size with wu2quant.NewBuffer(sz)
