@@ -24,11 +24,11 @@ func main() {
 
 func run() error {
 	var colors int
-	var dither bool
+	var euclidean bool
 
 	fs := flag.NewFlagSet("", 0)
 	fs.IntVar(&colors, "colors", 256, "Number of colors")
-	fs.BoolVar(&dither, "dither", true, "Dither")
+	fs.BoolVar(&euclidean, "euclidean", false, "Use wu2 to build palette only; use Euclidean distance to update colours")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return err
@@ -53,7 +53,7 @@ func run() error {
 
 	var out image.Image
 
-	if !dither {
+	if euclidean {
 		rg := convertImageToRGBA(img)
 		out = rg
 		pal := make(color.Palette, 0, 16)
